@@ -6,6 +6,11 @@ riempimento del **contesto** (verde < 70%, giallo < 90%, rosso oltre), una voce
 nella riga di stato e un avviso quando un limite supera il 90%. Le percentuali dei
 limiti compaiono dopo la prima risposta della sessione.
 
+Nelle app (desktop e mobile) per le sessioni cloud la barra non viene disegnata:
+lì il mod passa a Claude le percentuali aggiornate a ogni messaggio e Claude chiude
+ogni risposta con una riga in corsivo, ad esempio
+_📊 5 ore 27% · 7 giorni 23% · Contesto 15%_. Il comando `/uso` mostra i valori su richiesta.
+
 ## Installazione
 
 Al prompt di una sessione Claude Code:

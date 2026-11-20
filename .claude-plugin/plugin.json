@@ -1,6 +1,6 @@
 {
   "name": "usage-meter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Indicatore sempre visibile della % di utilizzo (limiti 5 ore / 7 giorni e contesto)",
   "types": "./types/index.d.ts",
   "license": "MIT",

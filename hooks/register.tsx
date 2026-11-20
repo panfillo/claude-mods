@@ -36,17 +36,21 @@ function color(p: number): string {
   return p >= 90 ? 'red' : p >= 70 ? 'yellow' : 'green'
 }
 
+function summary(list: Meter[]): string {
+  return list.length ? 'Uso: ' + list.map(m => `${m.label} ${m.percent}%`).join(' · ') : 'Uso: in attesa dei dati…'
+}
+
 async function refresh($: EngineInterface, list: Meter[]) {
   await update($, meters, () => list)
-  $.ui.status(
-    list.length ? 'Uso: ' + list.map(m => `${m.label} ${m.percent}%`).join(' · ') : undefined,
-  )
+  $.ui.invalidate('ui.render')
+  $.ui.status(summary(list))
 }
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const r = await next(e)
     const u = await $.session.usage()
+    await $.command.register({ name: 'uso', description: 'Mostra la percentuale di utilizzo del piano' })
     await refresh($, toMeters(u.rateLimits, u.context))
     return r
   })
@@ -60,11 +64,55 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // Le app non disegnano la UI dei mod nelle sessioni cloud: Claude chiude ogni
+  // risposta con la riga dell'utilizzo, dai dati passati qui (invisibili all'utente).
+  on('prompt.submit', async ($, e, next) => {
+    if (e.command || e.isMeta) return next(e)
+    try {
+      const u = await $.session.usage()
+      const list = toMeters(u.rateLimits, u.context)
+      if (list.length === 0) return next(e)
+      const line = '📊 ' + list.map(m => `${m.label} ${m.percent}%`).join(' · ')
+      const resets = list.filter(m => m.resetsAt).map(m => `${m.label}: reset ${m.resetsAt}`).join('; ')
+      const note =
+        `[usage-meter] Utilizzo attuale del piano: ${line}. ${resets}. ` +
+        'Termina la tua risposta finale con questa riga esatta, da sola, in corsivo: _' + line + '_'
+      return next({ ...e, context: [...(e.context ?? []), note] })
+    } catch {
+      return next(e)
+    }
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    const r = await next(e)
+    try {
+      const u = await $.session.usage()
+      const list = toMeters(u.rateLimits, u.context)
+      await refresh($, list)
+      if (list.length) $.ui.log('📊 ' + summary(list).replace('Uso: ', 'Utilizzo — '))
+    } catch {
+      // nessun dato: niente riga
+    }
+    return r
+  })
+
+  on('command.run', { command: 'uso' }, async $ => {
+    const u = await $.session.usage()
+    const list = toMeters(u.rateLimits, u.context)
+    await refresh($, list)
+    return {
+      text: list.length
+        ? list.map(m => `${m.label}: ${m.percent}%${resetText(m.resetsAt)}`).join('\n')
+        : 'Nessun dato di utilizzo ancora disponibile.',
+    }
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const list = await read($, meters)
-    if (e.props.hasSurvey || list.length === 0) return next(e)
+    if (e.props.hasSurvey) return next(e)
 
     const { Box, Text } = $.ui.resolve(e)
+    if (list.length === 0) return <Text dimColor>Uso: in attesa dei dati…</Text>
     const W = 10
 
     return (
