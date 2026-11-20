@@ -1,0 +1,5 @@
+{
+  "name": "panfillo-mods",
+  "owner": { "name": "panfillo" },
+  "plugins": [{ "name": "usage-meter", "source": "./" }]
+}
